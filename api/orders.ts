@@ -1,11 +1,5 @@
-
 import { kv } from '@vercel/kv';
 import type { Order } from '../types';
-
-// La configurazione di Vercel per le funzioni Edge richiede un runtime specifico.
-export const config = {
-  runtime: 'edge',
-};
 
 // Funzione helper per ottenere la chiave del giorno corrente in formato UTC.
 // Questo previene problemi legati al fuso orario del server.
