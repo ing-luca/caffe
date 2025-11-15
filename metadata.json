@@ -1,0 +1,5 @@
+{
+  "name": "caffé special",
+  "description": "An application for teachers to order their coffee, specifying their name and classroom. It displays all orders for the current day, with the list automatically resetting at midnight.",
+  "requestFramePermissions": []
+}
