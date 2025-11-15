@@ -7,47 +7,56 @@ import { CoffeeIcon } from './components/icons/CoffeeIcon';
 
 const App: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const getTodayStorageKey = useCallback(() => {
-    const today = new Date();
-    return `orders_${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
+  const fetchOrders = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await fetch('/api/orders');
+      if (!response.ok) {
+        throw new Error('Impossibile caricare gli ordini.');
+      }
+      const data: Order[] = await response.json();
+      setOrders(data);
+    } catch (err) {
+      console.error("Error fetching orders:", err);
+      setError(err instanceof Error ? err.message : 'Si è verificato un errore sconosciuto.');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
-    // Clean up old storage keys
-    Object.keys(localStorage).forEach(key => {
-      if (key.startsWith('orders_') && key !== getTodayStorageKey()) {
-        localStorage.removeItem(key);
-      }
-    });
-
-    // Load today's orders
-    try {
-        const storedOrders = localStorage.getItem(getTodayStorageKey());
-        if (storedOrders) {
-            setOrders(JSON.parse(storedOrders));
-        }
-    } catch (error) {
-        console.error("Failed to parse orders from localStorage", error);
-        setOrders([]);
-    }
-  }, [getTodayStorageKey]);
-
-  useEffect(() => {
-    try {
-        localStorage.setItem(getTodayStorageKey(), JSON.stringify(orders));
-    } catch (error) {
-        console.error("Failed to save orders to localStorage", error);
-    }
-  }, [orders, getTodayStorageKey]);
-
-  const addOrder = (order: Omit<Order, 'id' | 'timestamp'>) => {
+    fetchOrders();
+  }, [fetchOrders]);
+  
+  const addOrder = async (order: Omit<Order, 'id' | 'timestamp'>) => {
     const newOrder: Order = {
       ...order,
       id: Date.now(),
       timestamp: new Date().toISOString(),
     };
-    setOrders(prevOrders => [...prevOrders, newOrder]);
+    
+    // Non facciamo più un aggiornamento ottimistico,
+    // ci affidiamo a fetchOrders per avere dati consistenti.
+    
+    const response = await fetch('/api/orders', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(newOrder),
+    });
+
+    if (!response.ok) {
+      throw new Error('Impossibile aggiungere l\'ordine.');
+    }
+
+    // Dopo aver aggiunto un ordine con successo, ricarichiamo la lista completa
+    // per essere sicuri di avere i dati più aggiornati, inclusi ordini di altri.
+    await fetchOrders();
   };
 
   return (
@@ -65,13 +74,13 @@ const App: React.FC = () => {
              <OrderForm addOrder={addOrder} />
           </div>
           <div className="lg:col-span-2">
-            <OrderList orders={orders} />
+            <OrderList orders={orders} isLoading={loading} error={error} />
           </div>
         </div>
       </main>
 
        <footer className="text-center py-4 mt-8 text-amber-800/60 text-sm">
-        <p>Tutti gli ordini vengono resettati automaticamente a mezzanotte.</p>
+        <p>Gli ordini sono condivisi e vengono resettati automaticamente a mezzanotte.</p>
       </footer>
     </div>
   );
